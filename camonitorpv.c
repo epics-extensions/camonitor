@@ -2,6 +2,9 @@
 /*
  * $Id$
  * $Log$
+ * Revision 1.2  1999/03/01 20:04:26  jba
+ * Only do ca_get and add_event on first connection.
+ *
  * Revision 1.1  1997/02/12 18:04:42  jbk
  * added new program to monitor pv and call script when value changes
  *
@@ -33,6 +36,7 @@ typedef void (*OLD_SIG_FUNC)(int);
 
 fd_set all_fds;
 int do_not_exit=1;
+int never_connected=1;
 char pv_name[50];
 char pv_value[50];
 char* script_name;
@@ -176,18 +180,21 @@ static void conCB(CONNECT_ARGS args)
 */
 	if(ca_state(args.chid)==cs_conn)
 	{
-		/* issue a get */
-		if(ca_field_type(args.chid)==DBF_ENUM)
-		{
-			pv_type=DBF_ENUM;
-			rc=ca_array_get_callback(DBR_GR_ENUM,1,id,getCB,NULL);
+	 	if (never_connected) {
+			never_connected=0;
+			/* issue a get */
+			if(ca_field_type(args.chid)==DBF_ENUM)
+			{
+				pv_type=DBF_ENUM;
+				rc=ca_array_get_callback(DBR_GR_ENUM,1,id,getCB,NULL);
+			}
+			else
+			{
+				pv_type=DBF_STRING;
+				rc=ca_array_get_callback(DBR_STRING,1,id,getCB,NULL);
+			}
+			SEVCHK(rc,"get with callback bad");
 		}
-		else
-		{
-			pv_type=DBF_STRING;
-			rc=ca_array_get_callback(DBR_STRING,1,id,getCB,NULL);
-		}
-		SEVCHK(rc,"get with callback bad");
 	}
 	else
 		fprintf(stderr,"PV <%s> not connected\n",pv_name);
