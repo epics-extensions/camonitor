@@ -9,3 +9,4 @@ Tue Sep 22 16:12:27 CDT 1998
 
 Wed Jan 27 08:59:09 CST 1999
 	Modified to allow large arrays
+	Added versioning and fixed sccsIDs.
