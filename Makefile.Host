@@ -5,8 +5,14 @@ TOP = ../../..
 include $(TOP)/config/CONFIG_EXTENSIONS
 
 # Debugging options
-#CC = purify -first-only -chain-length=25  $($(ANSI)_$(CMPLR))
+ifeq ($(T_A),solaris)
+CC  = purify -first-only -chain-length=30 $($(ANSI)_$(CMPLR))
+CXX = purify -first-only -chain-length=30 $($(CPLUSPLUS)_$(CXXCMPLR))
+HOST_OPT=NO
+#CC  = quantify  $($(ANSI)_$(CMPLR))
+#CXX = quantify  $($(CPLUSPLUS)_$(CXXCMPLR))
 #HOST_OPT=NO
+endif
 
 USR_LIBS = ca Com
 
@@ -15,4 +21,7 @@ PROD_WIN32 = camonitor
 
 include $(TOP)/config/RULES.Host
 
-
+xxx:
+	@echo JBATEST=$(JBATEST)
+	@echo JBATEST2=$(JBATEST2)
+	@echo JBATEST3=$(JBATEST3)

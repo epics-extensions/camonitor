@@ -40,8 +40,8 @@ static char *sccsId = "@(#) $Id$";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#include "fdmgr.h"
 #include "cvtFast.h"
 #include "cadef.h"
 #include "tsDefs.h"
@@ -50,9 +50,6 @@ static char *sccsId = "@(#) $Id$";
 
 #include "camonitorVersion.h"
 
-#define FDMGR_SEC_TIMEOUT        10              /* seconds       */
-#define FDMGR_USEC_TIMEOUT       0               /* micro-seconds */
-
 #define CA_PEND_EVENT_TIME	0.001
 #define CONNECTION_WAIT_SECONDS	3.0
 
@@ -60,6 +57,7 @@ static char *sccsId = "@(#) $Id$";
 #define FALSE           0
 
 /* globals */
+
 int DEBUG;
 
 /* forward declarations */
@@ -77,6 +75,9 @@ void addMonitor(char *channelName)
 
   if (DEBUG) printf("addMonitor for [%s]\n",channelName);
 
+/*
+printf("addMonitor for [%s]\n",channelName);
+*/
   status = ca_search_and_connect(channelName,&chid,processChangeConnectionEvent,NULL);
   SEVCHK(status,"ca_search_and_connect failed\n");
   if (status != ECA_NORMAL) return;
@@ -121,7 +122,7 @@ void startMonitor (chid chan, dbr_short_t *pprecision)
 
     status = ca_add_masked_array_event (request_type, 
         ca_element_count(chan), chan, processNewEvent,
-       pprecision, 0.0f, 0.0f, 0.0f, &evid, DBE_VALUE|DBE_ALARM);
+       pprecision, 0.0f, 0.0f, 0.0f, &evid, DBE_VALUE);
     SEVCHK(status,"ca_add_masked_array_event failed\n");
 }
 
@@ -156,9 +157,9 @@ void processChangeConnectionEvent(struct connection_handler_args args)
   } 
   else {
     if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
-    ca_set_puser(args.chid,TRUE);
+    ca_set_puser(args.chid,(void *)TRUE);
     if (DEBUG) {
-        printf ("Number of elements  for [%s] is %d\n",
+        printf ("Number of elements  for [%s] is %ld\n",
             ca_name(args.chid), ca_element_count(args.chid));
     }
 
@@ -194,6 +195,11 @@ void processNewEvent(struct event_handler_args args)
   count = args.count;
   pbuffer = (void *)args.dbr;
   type = args.type;
+/*
+printf("type=%d\n",type);
+printf("count=%d\n",count);
+*/
+
 
   switch(type){
   case (DBR_TIME_STRING):
@@ -290,7 +296,6 @@ void processNewEvent(struct event_handler_args args)
       alarmSeverityString[cdData->severity]); 
 
   printf("\n");
-  fflush(0);
 }
 
 void processCA(void *notused)
@@ -298,37 +303,17 @@ void processCA(void *notused)
   ca_pend_event(CA_PEND_EVENT_TIME);
 }
 
-
-void registerCA(void *pfdctx,int fd,int condition)
-{
-  if (DEBUG)  printf("registerCA with condition: %d\n",condition);
-
-  if (condition){
-    fdmgr_add_fd(pfdctx, fd, processCA, NULL);
-  } else {
-    fdmgr_clear_fd(pfdctx, fd);
-  }
-}
-
 void main(int argc,char *argv[])
 {
-   void *pfdctx;			/* fdmgr context */
    int printHelp=FALSE;
    int printVersion=FALSE;
    int i=1;
    int pvcount=0;
-   static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
 
    /*  initialize channel access */
    SEVCHK(ca_task_initialize(),
      "initializeCA: error in ca_task_initialize");
  
-   /* initialize fdmgr */
-   pfdctx = (void *) fdmgr_init();
-
-   /* add CA's fd to fdmgr...  */
-   SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
-     "initializeCA: error adding CA's fd to X");
 
    /* get command line options if any  */
    DEBUG = FALSE;
@@ -368,11 +353,9 @@ void main(int argc,char *argv[])
       exit(0);
    }
 
-   ca_pend_event(CA_PEND_EVENT_TIME);
-
    /* start  events loop */
    while(TRUE) {
-      fdmgr_pend_event(pfdctx,&timeout);
+      ca_pend_event(CA_PEND_EVENT_TIME);
    }
 }
 
