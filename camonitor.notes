@@ -23,3 +23,4 @@ Fri Dec 17 09:09:31 CST 1999
 
 Mon May  1 11:35:52 CDT 2000
 	camonitorpv.c change: Exception callback exCB replaced.
+	camonitor.c change: Changed < and > to quotes in include lines.
