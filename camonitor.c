@@ -290,6 +290,7 @@ void processNewEvent(struct event_handler_args args)
       alarmSeverityString[cdData->severity]); 
 
   printf("\n");
+  fflush(0);
 }
 
 void processCA(void *notused)
