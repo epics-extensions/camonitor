@@ -19,9 +19,8 @@ USR_LIBS = ca Com
 PROD_DEFAULT = camonitor camonitorpv
 PROD_WIN32 = camonitor
 
+camonitor_SRCS = camonitor.c
+camonitorpv_SRCS = camonitorpv.c
+
 include $(TOP)/config/RULES.Host
 
-xxx:
-	@echo JBATEST=$(JBATEST)
-	@echo JBATEST2=$(JBATEST2)
-	@echo JBATEST3=$(JBATEST3)
