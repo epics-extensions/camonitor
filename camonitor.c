@@ -1,3 +1,11 @@
+/*************************************************************************\
+* Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+* National Laboratory.
+* Copyright (c) 2002 The Regents of the University of California, as
+* Operator of Los Alamos National Laboratory.
+* This file is distributed subject to a Software License Agreement found
+* in the file LICENSE that is included with this distribution. 
+\*************************************************************************/
 
 static char *sccsId = "@(#) $Id$";
 
@@ -8,51 +16,6 @@ static char *sccsId = "@(#) $Id$";
  * 
  *      Experimental Physics and Industrial Control System (EPICS)
  *
- *      Copyright 1991, the Regents of the University of California,
- *      and the University of Chicago Board of Governors.
- *
- *      This software was produced under  U.S. Government contracts:
- *      (W-7405-ENG-36) at the Los Alamos National Laboratory,
- *      and (W-31-109-ENG-38) at Argonne National Laboratory.
- *
- *      Initial development by:
- *              The Controls and Automation Group (AT-8)
- *              Ground Test Accelerator
- *              Accelerator Technology Division
- *              Los Alamos National Laboratory
- *
- *      Co-developed with
- *              The Controls and Computing Group
- *              Accelerator Systems Division
- *              Advanced Photon Source
- *              Argonne National Laboratory
- *
- * Modification Log:
- * -----------------
- *              Argonne National Laboratory
- *
- * Modification Log:
- * -----------------
- *      28-Aug-01       RonM    Added a patch from Janet Anderson
- *                              so that the program accepts subsequent
- *                              PV's and adds monitors on them.
- *                              Here's a sample run:
- *                              source epicsSetupDev
- *                              camonitor
- *                              LI31:XCOR:41:BDES START
- *                              LI31:QUAD:21:BDES START
- *                              LI31:XCOR:41:BDES STOP
- *    
- *                              If you start mulitple monitors on the same
- *                              PV, you enter the event routine that number
- *                              of times for each event.
- *            
- *                              Then, with multiple monitors on the same
- *                              PV, you must stop them one at a time.
- * 
- *                              Take out test of !pvcount so we don't
- *                              have to specify a pv on the command line.
- *      ...
  */
 
 #include <stdio.h>

@@ -1,18 +1,14 @@
+/*************************************************************************\
+* Copyright (c) 2002 The University of Chicago, as Operator of Argonne
+* National Laboratory.
+* Copyright (c) 2002 The Regents of the University of California, as
+* Operator of Los Alamos National Laboratory.
+* This file is distributed subject to a Software License Agreement found
+* in the file LICENSE that is included with this distribution. 
+\*************************************************************************/
 
 /*
  * $Id$
- * $Log$
- * Revision 1.3  2000/05/01 16:09:07  jba
- * Exception callback exCB replaced.
- *
- * Revision 1.2  1999/03/01 20:04:26  jba
- * Only do ca_get and add_event on first connection.
- *
- * Revision 1.1  1997/02/12 18:04:42  jbk
- * added new program to monitor pv and call script when value changes
- *
- *
- * Monitor a PV and call a program/script each time the value changes
  */
 
 #include <stdio.h>
