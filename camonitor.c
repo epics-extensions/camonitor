@@ -48,6 +48,8 @@ static char *sccsId = "@(#)camonitor.c	1.22\t11/8/93";
 #include <alarm.h>			/* alarm status, severity     */
 #include <alarmString.h>
 
+#include <camonitorVersion.h>
+
 #define FDMGR_SEC_TIMEOUT        10              /* seconds       */
 #define FDMGR_USEC_TIMEOUT       0               /* micro-seconds */
 
@@ -289,11 +291,11 @@ void main(int argc,char *argv[])
   for(i=1;i<argc && !input_error;i++)
   {
     if(strncmp("-v",argv[i],2)==0){
+      printf("%s\n",camonitorVersion);
+      exit(1);
+    } else if(strncmp("-d",argv[i],2)==0){
       DEBUG = TRUE;
       if (DEBUG) printf("Setting DEBUG to true\n");
-    } else if(strncmp("-?",argv[i],2)==0){
-      if (DEBUG) printf("Help requested.\n");
-      input_error =1;
     } else if(strncmp("-",argv[i],1)==0){
       if (DEBUG) printf("Unknown option requested $s\n",argv[i]);
       input_error =1;
