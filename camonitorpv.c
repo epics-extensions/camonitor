@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <wait.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/time.h>
 
