@@ -15,3 +15,5 @@ Mon Mar  1 14:05:13 CST 1999
 	camonitorpv.c change: Only do ca_get and
 	add_event on first connection.
 
+Thu Sep  2 14:21:12 CDT 1999
+	Changes to speed up connections

@@ -54,6 +54,7 @@ static char *sccsId = "@(#) $Id$";
 #define FDMGR_USEC_TIMEOUT       0               /* micro-seconds */
 
 #define CA_PEND_EVENT_TIME	0.001
+#define CONNECTION_WAIT_SECONDS	3.0
 
 #define TRUE            1
 #define FALSE           0
@@ -71,52 +72,31 @@ void addMonitor(char *channelName)
 {
   int status;
   chid chid;
-  evid evid;
-  int nelm;
-  struct dbr_gr_float value;
-  short *pprecision = 0;
-  int request_type;
+  time_t startTime, currentTime;
+
 
   if (DEBUG) printf("addMonitor for [%s]\n",channelName);
 
-  status = ca_search(channelName,&chid);
-  SEVCHK(status,"ca_search failed\n");
+  status = ca_search_and_connect(channelName,&chid,processChangeConnectionEvent,NULL);
+  SEVCHK(status,"ca_search_and_connect failed\n");
   if (status != ECA_NORMAL) return;
+  ca_set_puser(chid,FALSE);
 
-  ca_pend_io(2.0);
-
-  if (ca_field_type(chid) == TYPENOTCONN) {
-    printf(" %s  not found\n",channelName);
-  } else {
-    status = ca_replace_access_rights_event(chid, processAccessRightsEvent);
-    SEVCHK(status,"ca_replace_access_rights_event failed\n");
-
-    nelm = ca_element_count(chid);
-    if (DEBUG) printf("Number of elements  for [%s] is %d\n",channelName,nelm);
-
-    if (ca_field_type(chid) == DBF_DOUBLE ||
-        ca_field_type(chid) == DBF_FLOAT ) {
-      status = ca_get(DBR_GR_FLOAT,chid,&value);
-      SEVCHK(status,"ca_get for precision failed\n");
-      ca_pend_io(2.0);
-      pprecision = (short *)calloc(1,sizeof(short));
-      *pprecision = value.precision;
-    }
-
-    if (ca_field_type(chid) == DBF_ENUM ) request_type = DBR_TIME_STRING;
-    else request_type = dbf_type_to_DBR_TIME(ca_field_type(chid));
-
-    status = ca_add_masked_array_event(request_type, nelm, chid, processNewEvent,
-       pprecision, (float)0,(float)0,(float)0, &evid, DBE_VALUE|DBE_ALARM);
-    SEVCHK(status,"ca_add_masked_array_event failed\n");
-
-    /* add change connection event */
-    ca_change_connection_event(chid, processChangeConnectionEvent);
+  currentTime = time(&startTime);
+  while ((ca_field_type(chid) == TYPENOTCONN) &&
+    (difftime(currentTime, startTime)<CONNECTION_WAIT_SECONDS) ){
+    ca_pend_event(.1);
+    time(&currentTime);
+  }
+  if (ca_field_type(chid) == TYPENOTCONN){
+    printf("[%s] not connected\n",channelName);
   }
 }
 
 static void processAccessRightsEvent(struct access_rights_handler_args args)
 {
+  if (DEBUG) printf("processAccessRightsEvent for [%s]\n",ca_name(args.chid));
+
   if (ca_field_type(args.chid) == TYPENOTCONN) return;
   if (!ca_read_access(args.chid)) {
      printf (" %s  no read access\n",ca_name(args.chid));
@@ -128,12 +108,43 @@ static void processAccessRightsEvent(struct access_rights_handler_args args)
 
 void processChangeConnectionEvent(struct connection_handler_args args)
 {
+  int status;
+  evid evid;
+  int nelm;
+  struct dbr_gr_float value;
+  short *pprecision = 0;
+  int request_type;
+
   if (DEBUG) printf("processChangeConnectionEvent for [%s]\n",ca_name(args.chid));
 
-  if (args.op == CA_OP_CONN_DOWN)
-     printf (" %s  not connected\n",ca_name(args.chid));
-}
+  if (args.op == CA_OP_CONN_DOWN) {
+     printf ("[%s] not connected\n",ca_name(args.chid));
+  } else {
+    if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
+    ca_set_puser(args.chid,TRUE);
+    nelm = ca_element_count(args.chid);
+    if (DEBUG) printf("Number of elements  for [%s] is %d\n",ca_name(args.chid),nelm);
 
+    if (ca_field_type(args.chid) == DBF_DOUBLE ||
+        ca_field_type(args.chid) == DBF_FLOAT ) {
+      status = ca_get(DBR_GR_FLOAT,args.chid,&value);
+      SEVCHK(status,"ca_get for precision failed\n");
+      ca_pend_io(2.0);
+      pprecision = (short *)calloc(1,sizeof(short));
+      *pprecision = value.precision;
+    }
+
+    if (ca_field_type(args.chid) == DBF_ENUM ) request_type = DBR_TIME_STRING;
+    else request_type = dbf_type_to_DBR_TIME(ca_field_type(args.chid));
+
+    status = ca_add_masked_array_event(request_type, nelm, args.chid, processNewEvent,
+       pprecision, (float)0,(float)0,(float)0, &evid, DBE_VALUE|DBE_ALARM);
+    SEVCHK(status,"ca_add_masked_array_event failed\n");
+
+    status = ca_replace_access_rights_event(args.chid, processAccessRightsEvent);
+    SEVCHK(status,"ca_replace_access_rights_event failed\n");
+  }
+}
 
 void processNewEvent(struct event_handler_args args)
 {
@@ -159,7 +170,7 @@ void processNewEvent(struct event_handler_args args)
   {
     struct dbr_time_string *pvalue 
       = (struct dbr_time_string *) pbuffer;
-	
+
     printf("%s ",pvalue->value);
     break;
   }
@@ -259,63 +270,78 @@ void processCA(void *notused)
 
 void registerCA(void *pfdctx,int fd,int condition)
 {
-  if (DEBUG) printf("registerCA with condition: %d\n",condition);
+  if (DEBUG)  printf("registerCA with condition: %d\n",condition);
 
-  if (condition) fdmgr_add_fd(pfdctx, fd, processCA, NULL);
-  else fdmgr_clear_fd(pfdctx, fd);
+  if (condition){
+    fdmgr_add_fd(pfdctx, fd, processCA, NULL);
+  } else {
+    fdmgr_clear_fd(pfdctx, fd);
+  }
 }
 
 void main(int argc,char *argv[])
 {
-  void *pfdctx;			/* fdmgr context */
-  extern char *optarg; /* needed for getopt() */
-  extern int optind;   /* needed for getopt() */
-  int input_error = 0;
-  int i;
-  static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
+   void *pfdctx;			/* fdmgr context */
+   int printHelp=FALSE;
+   int printVersion=FALSE;
+   int i=1;
+   int pvcount=0;
+   static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
 
-  /*  initialize channel access */
-  SEVCHK(ca_task_initialize(),
-    "initializeCA: error in ca_task_initialize");
+   /*  initialize channel access */
+   SEVCHK(ca_task_initialize(),
+     "initializeCA: error in ca_task_initialize");
  
-  /* initialize fdmgr */
-  pfdctx = (void *) fdmgr_init();
+   /* initialize fdmgr */
+   pfdctx = (void *) fdmgr_init();
 
-  /* add CA's fd to fdmgr...  */
-  SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
-    "initializeCA: error adding CA's fd to X");
+   /* add CA's fd to fdmgr...  */
+   SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
+     "initializeCA: error adding CA's fd to X");
 
-  DEBUG = FALSE;
+   /* get command line options if any  */
+   DEBUG = FALSE;
+   while (i < argc)
+   {
+      if (strcmp(argv[i],"-debug")== 0 ) { DEBUG = TRUE;}
+      else if (strcmp(argv[i],"\\debug")  ==0 ){ DEBUG = TRUE;}
+      else if (strcmp(argv[i],"-v")       ==0 ) {printVersion=TRUE; break; }
+      else if (strcmp(argv[i],"\\v")      ==0 ) {printVersion=TRUE; break; }
+      else if (strcmp(argv[i],"-version") ==0 ) {printVersion=TRUE; break; }
+      else if (strcmp(argv[i],"\\version")==0 ) {printVersion=TRUE; break; }
+      else if (strcmp(argv[i],"?")        ==0 ) {printHelp=TRUE; break; }
+      else if (strncmp(argv[i],"-",1)     ==0 ) {printHelp=TRUE; break; }
+      else if (strncmp(argv[i],"\\",1)    ==0 ) {printHelp=TRUE; break; }
+      else  {
+        /* add ca monitor for each  PVname on the command line */
+        if (DEBUG) printf("PVname%d: %s\n",i,argv[i]);
+        addMonitor(argv[i]);
+        pvcount++;
+      }
+     i++;
+   }
 
-  /* get command line options and pvnames */
-  for(i=1;i<argc && !input_error;i++)
-  {
-    if(strncmp("-v",argv[i],2)==0){
-      printf("%s\n",camonitorVersion);
+   if (printVersion) {
+      fprintf(stderr, "%s\n",camonitorVersion);
       exit(1);
-    } else if(strncmp("-d",argv[i],2)==0){
-      DEBUG = TRUE;
-      if (DEBUG) printf("Setting DEBUG to true\n");
-    } else if(strncmp("-",argv[i],1)==0){
-      if (DEBUG) printf("Unknown option requested $s\n",argv[i]);
-      input_error =1;
-    } else{
-      if (DEBUG) printf("PVname%d: %s\n",i,argv[i]);
-      addMonitor(argv[i]);
-    }
-  }
-  if (argc == 1) input_error =1;
+   }
+ 
+   if (printHelp) {
+      fprintf(stderr, "\n \tusage: %s PVname PVname ... \n\n",argv[0]);
+      exit(1);
+   }
+ 
+   if(DEBUG) printf("pvcount=%d\n",pvcount);
 
-  if(input_error) {
-    fprintf(stderr, "\n \tusage: %s PVname PVname ... \n\n",argv[0]);
-    exit(1);
-  }
+   if(!pvcount) {
+      exit(0);
+   }
 
-  ca_pend_event(CA_PEND_EVENT_TIME);
+   ca_pend_event(CA_PEND_EVENT_TIME);
 
-  /* start  events loop */
-  while(TRUE) {
-    fdmgr_pend_event(pfdctx,&timeout);
-  }
+   /* start  events loop */
+   while(TRUE) {
+      fdmgr_pend_event(pfdctx,&timeout);
+   }
 }
 
