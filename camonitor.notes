@@ -6,3 +6,6 @@ Mon Sep 21 15:06:43 CDT 1998
 Tue Sep 22 16:12:27 CDT 1998
 	Added Makefile.Host
 	Added array handling
+
+Wed Jan 27 08:59:09 CST 1999
+	Modified to allow large arrays
