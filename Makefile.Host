@@ -1,0 +1,14 @@
+#
+# $Id$
+#
+TOP = ../../..
+include $(TOP)/config/CONFIG_EXTENSIONS
+
+USR_LIBS = ca Com
+
+PROD_DEFAULT = camonitor camonitorpv
+PROD_WIN32 = camonitor
+
+include $(TOP)/config/RULES.Host
+
+

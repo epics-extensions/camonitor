@@ -2,3 +2,7 @@ Mon Sep 21 15:06:43 CDT 1998
 	Added access rights change handler
 	Added connection handler
 	Replaced getopt code (for portability)
+
+Tue Sep 22 16:12:27 CDT 1998
+	Added Makefile.Host
+	Added array handling

@@ -70,6 +70,7 @@ void addMonitor(char *channelName)
   int status;
   chid chid;
   evid evid;
+  int nelm;
 
   if (DEBUG) printf("addMonitor for [%s]\n",channelName);
 
@@ -81,9 +82,11 @@ void addMonitor(char *channelName)
   if (status != ECA_NORMAL)
     printf("ca_replace_access_rights_event failed on channel name: [%s]\n",channelName);
 
-  ca_pend_io(3.0);
+  ca_pend_io(1.0);
+  nelm = ca_element_count(chid);
+  if (DEBUG) printf("Number of elements  for [%s] is %d\n",channelName,nelm);
 
-  status = ca_add_masked_array_event(DBR_TIME_STRING, 1, chid, processNewEvent,
+  status = ca_add_masked_array_event(DBR_TIME_STRING, nelm, chid, processNewEvent,
      NULL, (float)0,(float)0,(float)0, &evid, DBE_VALUE|DBE_ALARM);
   if (status != ECA_NORMAL)
     printf("ca_add_masked_array_event failed on channel name: [%s]\n", channelName);
@@ -120,6 +123,10 @@ void processNewEvent(struct event_handler_args args)
 {
   struct dbr_time_string *cdData;
   char    timeText[28];
+  int i;
+  int bytes;
+  int size;
+  char *val;
 
   if (DEBUG) printf("processNewEvent for [%s]\n",ca_name(args.chid));
 
@@ -127,15 +134,23 @@ void processNewEvent(struct event_handler_args args)
 
   (void)tsStampToText(&cdData->stamp, TS_TEXT_MMDDYY, timeText);
 
+  printf(" %-30s %s", ca_name(args.chid), timeText);
+
+  bytes = dbr_size_n(args.type,args.count);
+  size = dbr_value_size[args.type];
+  val = dbr_value_ptr(args.dbr,args.type);
+  for (i=0;i<args.count;i++) {
+    printf(" %6s",val);
+    if ((i+1) % 10 == 0 && (i+1)<args.count) printf("\n");
+    val+=size;
+  }
+
   if (cdData->severity)
-    printf(" %-30s %s %s %s %s\n",
-      ca_name(args.chid), timeText, cdData->value,
+    printf(" %s %s",
       alarmStatusString[cdData->status],
       alarmSeverityString[cdData->severity]); 
-  else 
-    printf(" %-30s %s %s \n",
-      ca_name(args.chid), timeText, cdData->value);
 
+  printf("\n");
 }
 
 void processCA(void *notused)
@@ -157,9 +172,8 @@ void main(int argc,char *argv[])
   void *pfdctx;			/* fdmgr context */
   extern char *optarg; /* needed for getopt() */
   extern int optind;   /* needed for getopt() */
-  int input_error;
-  int c;
-  int i,j;
+  int input_error = 0;
+  int i;
   static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
 
   /*  initialize channel access */
@@ -180,9 +194,12 @@ void main(int argc,char *argv[])
   {
     if(strncmp("-v",argv[i],2)==0){
       DEBUG = TRUE;
+      if (DEBUG) printf("Setting DEBUG to true\n");
     } else if(strncmp("-?",argv[i],2)==0){
+      if (DEBUG) printf("Help requested.\n");
       input_error =1;
     } else if(strncmp("-",argv[i],1)==0){
+      if (DEBUG) printf("Unknown option requested $s\n",argv[i]);
       input_error =1;
     } else{
       if (DEBUG) printf("PVname%d: %s\n",i,argv[i]);
