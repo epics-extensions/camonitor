@@ -283,6 +283,12 @@ void processNewEvent(struct event_handler_args args)
 
   if (DEBUG) printf("processNewEvent for [%s]\n",ca_name(args.chid));
 
+  if ( args.status != ECA_NORMAL ) {
+    printf ( "camonitor: update failed because \"%s\"\n",
+        ca_message ( args.status ) );
+    return;
+  }
+
   cdData = (struct dbr_time_string *) args.dbr;
   (void)tsStampToText(&cdData->stamp, TS_TEXT_MMDDYY, timeText);
   printf(" %-30s %s ", ca_name(args.chid), timeText);
