@@ -31,4 +31,7 @@ Fri Sep 14 10:11:49 CDT 2001 - Ron MacKenzie,SLAC
 Tue Jul 23 16:21:37 CDT 2002
 	Added license information to source files. Added LICENSE file.
 
-
+Fri Aug 16 14:59:44 CDT 2002
+	Converted gets to fgets.
+	Removed some compiler warnings.
+	Created 20020910 tar file.

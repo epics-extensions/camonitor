@@ -64,7 +64,6 @@ static void sig_chld(int sig)
 
 int main(int argc, char** argv)
 {
-	char buf[80];
 	fd_set rfds;
 	int tot;
 	struct timeval tv;
@@ -248,7 +247,7 @@ static void exCB(struct exception_handler_args args)
     fprintf(stderr,"exCB Exception: Channel Access Exception:\n"
       "  Channel Name: %s\n"
       "  Native Type: %s\n"
-      "  Native Count: %hu\n"
+      "  Native Count: %lu\n"
       "  Access: %s%s\n"
       "  IOC: %s\n"
       "  Message: %s\n"
