@@ -136,7 +136,8 @@ void processNewEvent(args)
 
 }
 
-void processCA()
+void processCA(notused)
+  void *notused;
 {
   ca_pend_event(CA_PEND_EVENT_TIME);
 }
