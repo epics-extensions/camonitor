@@ -24,3 +24,8 @@ Fri Dec 17 09:09:31 CST 1999
 Mon May  1 11:35:52 CDT 2000
 	camonitorpv.c change: Exception callback exCB replaced.
 	camonitor.c change: Changed < and > to quotes in include lines.
+
+Fri Sep 14 10:11:49 CDT 2001 - Ron MacKenzie,SLAC
+	added ability to add/remove PVs on-the-fly
+
+

@@ -33,15 +33,33 @@ static char *sccsId = "@(#) $Id$";
  *
  * Modification Log:
  * -----------------
- * .nn  mm-dd-yy        iii     Comment
+ *      28-Aug-01       RonM    Added a patch from Janet Anderson
+ *                              so that the program accepts subsequent
+ *                              PV's and adds monitors on them.
+ *                              Here's a sample run:
+ *                              source epicsSetupDev
+ *                              camonitor
+ *                              LI31:XCOR:41:BDES START
+ *                              LI31:QUAD:21:BDES START
+ *                              LI31:XCOR:41:BDES STOP
+ *    
+ *                              If you start mulitple monitors on the same
+ *                              PV, you enter the event routine that number
+ *                              of times for each event.
+ *            
+ *                              Then, with multiple monitors on the same
+ *                              PV, you must stop them one at a time.
+ * 
+ *                              Take out test of !pvcount so we don't
+ *                              have to specify a pv on the command line.
  *      ...
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
+#include "fdmgr.h"
 #include "cvtFast.h"
 #include "cadef.h"
 #include "tsDefs.h"
@@ -50,21 +68,76 @@ static char *sccsId = "@(#) $Id$";
 
 #include "camonitorVersion.h"
 
+#define FDMGR_SEC_TIMEOUT        10              /* seconds       */
+#define FDMGR_USEC_TIMEOUT       0               /* micro-seconds */
+
 #define CA_PEND_EVENT_TIME	0.001
 #define CONNECTION_WAIT_SECONDS	3.0
+
+#define CAM_ADD            1  
+#define CAM_REMOVE         2
+#define MAX_CHAN_MON     100
+#define MAX_CHAN_NAM_LEN 100
 
 #define TRUE            1
 #define FALSE           0
 
 /* globals */
-
 int DEBUG;
+
+struct chanDB_s {      /* global database of channels and associated names */
+  int chid;            /* these are the channels we currently have mon's on */
+  char chanNam[MAX_CHAN_MON];
+} DB_as[MAX_CHAN_NAM_LEN] = {0};    /* zero chid means slot not used */
 
 /* forward declarations */
 static void processAccessRightsEvent(struct access_rights_handler_args args);
 void processChangeConnectionEvent( struct connection_handler_args args);
 void processNewEvent( struct event_handler_args args);
 
+/*
+ * Channel Database.   Called by addMonitor and remMonitor to add or remove
+ * a channel to it's local database (table).  
+ * func is either ADD or REMOVE
+ * Returns 0 for failure. 1 for success.
+ */
+int chanDB (chid* chid, char* channelName, int func)
+{ 
+  int ii;   /* loop counter */
+
+  if (func == CAM_ADD) {
+    for ( ii = 0; ii<MAX_CHAN_MON; ii++) {
+      if (DB_as[ii].chid == 0) {             /* slot is available */
+	DB_as[ii].chid = *chid;
+        strncpy (DB_as[ii].chanNam, channelName, MAX_CHAN_NAM_LEN);
+	break;
+      }
+      if (ii == MAX_CHAN_MON -1) {
+        printf("ERROR: Array overflow in chanDB\n");
+        return (0);
+      }
+    }
+  }
+  else if (func == CAM_REMOVE) {
+    for ( ii = 0; ii<MAX_CHAN_MON; ii++) {
+      if (strcmp(channelName, DB_as[ii].chanNam) == 0) { /* found chanName*/
+        *chid = DB_as[ii].chid;                      /* return chid to caller*/ 
+        strcpy(DB_as[ii].chanNam,"     ");           /* free up slot */
+	DB_as[ii].chid = 0;                             
+        break;
+      }
+      if (ii == MAX_CHAN_MON -1) {
+        printf("ERROR: Channel not found in chanDB Database\n");
+        return (0);
+      }
+    }
+  }
+  else {                                            /* else bad func code */
+    return(0);
+  }
+
+  return(1);
+}
 
 void addMonitor(char *channelName)
 {
@@ -75,9 +148,6 @@ void addMonitor(char *channelName)
 
   if (DEBUG) printf("addMonitor for [%s]\n",channelName);
 
-/*
-printf("addMonitor for [%s]\n",channelName);
-*/
   status = ca_search_and_connect(channelName,&chid,processChangeConnectionEvent,NULL);
   SEVCHK(status,"ca_search_and_connect failed\n");
   if (status != ECA_NORMAL) return;
@@ -92,6 +162,31 @@ printf("addMonitor for [%s]\n",channelName);
   if (ca_field_type(chid) == TYPENOTCONN){
     printf("[%s] not connected\n",channelName);
   }
+  else {
+    chanDB(&chid, channelName, CAM_ADD);  /* save chid so we can remove */
+  }
+}
+
+/*
+ * Remove a monitor on input channelName 
+ */
+void remMonitor(char *channelName)
+{
+  int status;
+  chid chid;
+
+  if (DEBUG) printf("remMonitor for [%s]\n",channelName);
+
+  /* Find the chid associated with the channelName */
+  if (!chanDB(&chid, channelName, CAM_REMOVE)) {
+    if (DEBUG) printf ("ERROR: Channel not found in database \n");
+    return;
+  }
+
+  status = ca_clear_channel(chid);
+  SEVCHK(status,"ca_clear_channel failed\n");
+  if (status != ECA_NORMAL) return;
+  ca_pend_event(.1);
 }
 
 static void processAccessRightsEvent(struct access_rights_handler_args args)
@@ -122,7 +217,7 @@ void startMonitor (chid chan, dbr_short_t *pprecision)
 
     status = ca_add_masked_array_event (request_type, 
         ca_element_count(chan), chan, processNewEvent,
-       pprecision, 0.0f, 0.0f, 0.0f, &evid, DBE_VALUE);
+       pprecision, 0.0f, 0.0f, 0.0f, &evid, DBE_VALUE|DBE_ALARM);
     SEVCHK(status,"ca_add_masked_array_event failed\n");
 }
 
@@ -157,9 +252,9 @@ void processChangeConnectionEvent(struct connection_handler_args args)
   } 
   else {
     if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
-    ca_set_puser(args.chid,(void *)TRUE);
+    ca_set_puser(args.chid,TRUE);
     if (DEBUG) {
-        printf ("Number of elements  for [%s] is %ld\n",
+        printf ("Number of elements  for [%s] is %d\n",
             ca_name(args.chid), ca_element_count(args.chid));
     }
 
@@ -195,11 +290,6 @@ void processNewEvent(struct event_handler_args args)
   count = args.count;
   pbuffer = (void *)args.dbr;
   type = args.type;
-/*
-printf("type=%d\n",type);
-printf("count=%d\n",count);
-*/
-
 
   switch(type){
   case (DBR_TIME_STRING):
@@ -296,6 +386,7 @@ printf("count=%d\n",count);
       alarmSeverityString[cdData->severity]); 
 
   printf("\n");
+  fflush(0);
 }
 
 void processCA(void *notused)
@@ -303,17 +394,74 @@ void processCA(void *notused)
   ca_pend_event(CA_PEND_EVENT_TIME);
 }
 
+
+void registerCA(void *pfdctx,int fd,int condition)
+{
+  if (DEBUG)  printf("registerCA with condition: %d\n",condition);
+
+  if (condition){
+    fdmgr_add_fd(pfdctx, fd, processCA, NULL);
+  } else {
+    fdmgr_clear_fd(pfdctx, fd);
+  }
+}
+
+/* This is called when the stdin file descr has input ready 
+ * Input from the user looks like this for example:
+ *  LI31:XCOR:41:BDES START
+ *  LI31:QUAD:21:BDES STOP
+ */
+
+void processSTDIN(void *notused)
+{
+ char input_line[80];
+
+ if (gets(input_line)==NULL) return;
+ if (strstr(input_line,"START") != NULL) {  /* if contains start cmd */
+   if (DEBUG) printf("recvd START cmd\n");
+   if (strchr(input_line, ' ') !=NULL) {    /* if space found */
+     memset (strchr(input_line, ' '), 0, 1);  /* null terminate after PV */
+     if (strlen(input_line)) addMonitor(input_line);
+   }
+   else          /* else, command didn't parse, blank not found */
+     return;
+ }
+ else {          /* else, stop command */
+   if (DEBUG) printf("recvd STOP cmd\n");
+   if (strchr(input_line, ' ') !=NULL) {    /* if space found */ 
+     memset (strchr(input_line, ' '), 0, 1);  /* null terminate after PV */
+     if (strlen(input_line)) {
+       if (DEBUG) printf("calling remMonitor for %s \n",input_line);  
+       remMonitor(input_line); 
+     }
+   }
+   else          /* else, command didn't parse, blank not found */
+     return;
+ }
+}
+
 void main(int argc,char *argv[])
 {
+   void *pfdctx;			/* fdmgr context */
    int printHelp=FALSE;
    int printVersion=FALSE;
    int i=1;
    int pvcount=0;
+   static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
 
    /*  initialize channel access */
    SEVCHK(ca_task_initialize(),
      "initializeCA: error in ca_task_initialize");
  
+   /* initialize fdmgr */
+   pfdctx = (void *) fdmgr_init();
+
+   /* add stdin's fd, 0, to fdmgr...  */
+   fdmgr_add_fd(pfdctx, 0, processSTDIN, NULL);
+
+   /* add CA's fd to fdmgr...  */
+   SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
+     "initializeCA: error adding CA's fd to X");
 
    /* get command line options if any  */
    DEBUG = FALSE;
@@ -343,19 +491,32 @@ void main(int argc,char *argv[])
    }
  
    if (printHelp) {
+      fprintf(stderr, "\n \tusage: %s \n",argv[0]);
+      fprintf(stderr, "\tPV1 START\n");
+      fprintf(stderr, "\tPV2 START\n");
+      fprintf(stderr, "\tPV1 STOP\n");
+      fprintf(stderr, "\tPV2 STOP\n\n");
+   
       fprintf(stderr, "\n \tusage: %s PVname PVname ... \n\n",argv[0]);
+
+      fprintf(stderr, "\tOr, you can mix and match those two usages \n\n");
+
       exit(1);
    }
  
    if(DEBUG) printf("pvcount=%d\n",pvcount);
 
+   /**
    if(!pvcount) {
       exit(0);
    }
+   **/
+
+   ca_pend_event(CA_PEND_EVENT_TIME);
 
    /* start  events loop */
    while(TRUE) {
-      ca_pend_event(CA_PEND_EVENT_TIME);
+      fdmgr_pend_event(pfdctx,&timeout);
    }
 }
 
