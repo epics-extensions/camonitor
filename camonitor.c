@@ -86,9 +86,9 @@ static char *sccsId = "@(#) $Id$";
 int DEBUG;
 
 struct chanDB_s {      /* global database of channels and associated names */
-  int chid;            /* these are the channels we currently have mon's on */
+  chid chid;            /* these are the channels we currently have mon's on */
   char chanNam[MAX_CHAN_MON];
-} DB_as[MAX_CHAN_NAM_LEN] = {0};    /* zero chid means slot not used */
+} DB_as[MAX_CHAN_NAM_LEN] = {{0}};    /* zero chid means slot not used */
 
 /* forward declarations */
 static void processAccessRightsEvent(struct access_rights_handler_args args);
@@ -252,9 +252,9 @@ void processChangeConnectionEvent(struct connection_handler_args args)
   } 
   else {
     if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
-    ca_set_puser(args.chid,TRUE);
+    ca_set_puser(args.chid,(void *)TRUE);
     if (DEBUG) {
-        printf ("Number of elements  for [%s] is %d\n",
+        printf ("Number of elements  for [%s] is %ld\n",
             ca_name(args.chid), ca_element_count(args.chid));
     }
 
@@ -446,7 +446,7 @@ void processSTDIN(void *notused)
  }
 }
 
-void main(int argc,char *argv[])
+int main(int argc,char *argv[])
 {
    void *pfdctx;			/* fdmgr context */
    int printHelp=FALSE;
@@ -525,4 +525,3 @@ void main(int argc,char *argv[])
       fdmgr_pend_event(pfdctx,&timeout);
    }
 }
-
