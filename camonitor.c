@@ -106,43 +106,73 @@ static void processAccessRightsEvent(struct access_rights_handler_args args)
   }
 }
 
+void startMonitor (chid chan, dbr_short_t *pprecision)
+{
+    int request_type;
+    int status;
+    evid evid;
+
+    if (ca_field_type(chan) == DBF_ENUM ) {
+        request_type = DBR_TIME_STRING;
+    }
+    else {
+        request_type = dbf_type_to_DBR_TIME(ca_field_type(chan));
+    }
+
+    status = ca_add_masked_array_event (request_type, 
+        ca_element_count(chan), chan, processNewEvent,
+       pprecision, 0.0f, 0.0f, 0.0f, &evid, DBE_VALUE|DBE_ALARM);
+    SEVCHK(status,"ca_add_masked_array_event failed\n");
+}
+
+void getPrecisionCallBack (struct event_handler_args args)
+{
+    const struct dbr_gr_float *pvalue = args.dbr;
+    dbr_short_t *pprecision;
+
+    if (args.status!=ECA_NORMAL) {
+        fprintf (stderr, "dbr_gr_float get call back failed on analog channel \"%s\" because \"%s\"\n",
+                ca_name(args.chid), ca_message(args.status));
+        fprintf (stderr, "Unable to monitor PV\n");
+        return;
+    }
+    pprecision = (dbr_short_t *)calloc(1,sizeof(dbr_short_t));
+    if (!pprecision) {
+        fprintf (stderr, "memory allocation failed\n");
+        fprintf (stderr, "Unable to monitor PV\n");
+    }
+    *pprecision = pvalue->precision;
+    startMonitor (args.chid, pprecision);
+}
+
 void processChangeConnectionEvent(struct connection_handler_args args)
 {
   int status;
-  evid evid;
-  int nelm;
-  struct dbr_gr_float value;
-  short *pprecision = 0;
-  int request_type;
 
   if (DEBUG) printf("processChangeConnectionEvent for [%s]\n",ca_name(args.chid));
 
   if (args.op == CA_OP_CONN_DOWN) {
      printf ("[%s] not connected\n",ca_name(args.chid));
-  } else {
+  } 
+  else {
     if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
     ca_set_puser(args.chid,TRUE);
-    nelm = ca_element_count(args.chid);
-    if (DEBUG) printf("Number of elements  for [%s] is %d\n",ca_name(args.chid),nelm);
+    if (DEBUG) {
+        printf ("Number of elements  for [%s] is %d\n",
+            ca_name(args.chid), ca_element_count(args.chid));
+    }
 
     if (ca_field_type(args.chid) == DBF_DOUBLE ||
         ca_field_type(args.chid) == DBF_FLOAT ) {
-      status = ca_get(DBR_GR_FLOAT,args.chid,&value);
-      SEVCHK(status,"ca_get for precision failed\n");
-      ca_pend_io(2.0);
-      pprecision = (short *)calloc(1,sizeof(short));
-      *pprecision = value.precision;
+        status = ca_get_callback (DBR_GR_FLOAT, args.chid, getPrecisionCallBack, NULL);
+        SEVCHK(status,"ca_get_callback() for precision failed\n");
+    }
+    else {
+        startMonitor (args.chid, NULL);
     }
 
-    if (ca_field_type(args.chid) == DBF_ENUM ) request_type = DBR_TIME_STRING;
-    else request_type = dbf_type_to_DBR_TIME(ca_field_type(args.chid));
-
-    status = ca_add_masked_array_event(request_type, nelm, args.chid, processNewEvent,
-       pprecision, (float)0,(float)0,(float)0, &evid, DBE_VALUE|DBE_ALARM);
-    SEVCHK(status,"ca_add_masked_array_event failed\n");
-
     status = ca_replace_access_rights_event(args.chid, processAccessRightsEvent);
-    SEVCHK(status,"ca_replace_access_rights_event failed\n");
+    SEVCHK (status, "ca_replace_access_rights_event failed\n");
   }
 }
 
@@ -204,7 +234,7 @@ void processNewEvent(struct event_handler_args args)
       = (struct dbr_time_float *)pbuffer;
     dbr_float_t *pfloat = &pvalue->value;
     char string[MAX_STRING_SIZE];
-    short *pprecision =(short*)args.usr;
+    dbr_short_t *pprecision =(short*)args.usr;
 
     for (i = 0; i < count; i++,pfloat++){
       if(count!=1 && (i%10 == 0)) printf("\n");
@@ -243,7 +273,7 @@ void processNewEvent(struct event_handler_args args)
       = (struct dbr_time_double *)pbuffer;
     dbr_double_t *pdouble = &pvalue->value;
     char string[MAX_STRING_SIZE];
-    short *pprecision =(short*)args.usr;
+    dbr_short_t *pprecision =(short*)args.usr;
 
     for (i = 0; i < count; i++,pdouble++){
       if(count!=1 && (i%10 == 0)) printf("\n");
