@@ -39,6 +39,7 @@ static char *sccsId = "@(#)camonitor.c	1.22\t11/8/93";
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <fdmgr.h>
 #include <cadef.h>
@@ -58,25 +59,13 @@ static char *sccsId = "@(#)camonitor.c	1.22\t11/8/93";
 int DEBUG;
 
 
-/* prototypes for static routines */
-#ifdef __STDC__
-
+/* forward declarations */
+static void processAccessRightsEvent(struct access_rights_handler_args args);
 void processChangeConnectionEvent( struct connection_handler_args args);
 void processNewEvent( struct event_handler_args args);
 
-#else
 
-void processChangeConnectionEvent();
-void processNewEvent();
-
-#endif /*__STDC__*/
-
-
-
-
-
-void addMonitor(channelName)
-  char *channelName;
+void addMonitor(char *channelName)
 {
   int status;
   chid chid;
@@ -88,6 +77,10 @@ void addMonitor(channelName)
   if (status != ECA_NORMAL)
     printf("ca_search failed on channel name: [%s]\n",channelName);
 
+  status = ca_replace_access_rights_event(chid, processAccessRightsEvent);
+  if (status != ECA_NORMAL)
+    printf("ca_replace_access_rights_event failed on channel name: [%s]\n",channelName);
+
   ca_pend_io(3.0);
 
   status = ca_add_masked_array_event(DBR_TIME_STRING, 1, chid, processNewEvent,
@@ -96,25 +89,34 @@ void addMonitor(channelName)
     printf("ca_add_masked_array_event failed on channel name: [%s]\n", channelName);
 
   if (ca_field_type(chid) == TYPENOTCONN)
-    printf("[%s] not connected\n",channelName);
+    printf(" %s  not connected\n",channelName);
 
   /* add change connection event */
   ca_change_connection_event(chid, processChangeConnectionEvent);
 
 }
 
-void processChangeConnectionEvent(args)
-  struct connection_handler_args args;
+static void processAccessRightsEvent(struct access_rights_handler_args args)
+{
+  if (ca_field_type(args.chid) == TYPENOTCONN) return;
+  if (!ca_read_access(args.chid)) {
+     printf (" %s  no read access\n",ca_name(args.chid));
+  }
+  if (!ca_write_access(args.chid)) {
+     printf (" %s  no write access\n",ca_name(args.chid));
+  }
+}
+
+void processChangeConnectionEvent(struct connection_handler_args args)
 {
   if (DEBUG) printf("processChangeConnectionEvent for [%s]\n",ca_name(args.chid));
 
   if (args.op == CA_OP_CONN_DOWN)
-     printf ("[%s] not connected\n",ca_name(args.chid));
+     printf (" %s  not connected\n",ca_name(args.chid));
 }
 
 
-void processNewEvent(args)
-  struct event_handler_args args;
+void processNewEvent(struct event_handler_args args)
 {
   struct dbr_time_string *cdData;
   char    timeText[28];
@@ -136,17 +138,13 @@ void processNewEvent(args)
 
 }
 
-void processCA(notused)
-  void *notused;
+void processCA(void *notused)
 {
   ca_pend_event(CA_PEND_EVENT_TIME);
 }
 
 
-void registerCA(pfdctx,fd,condition)
-  void *pfdctx;
-  int fd;
-  int condition;
+void registerCA(void *pfdctx,int fd,int condition)
 {
   if (DEBUG) printf("registerCA with condition: %d\n",condition);
 
@@ -154,61 +152,53 @@ void registerCA(pfdctx,fd,condition)
   else fdmgr_clear_fd(pfdctx, fd);
 }
 
-
-
-
-
-void main(argc, argv)
-     int argc;
-     char *argv[];
+void main(int argc,char *argv[])
 {
-     void *pfdctx;			/* fdmgr context */
-     extern char *optarg; /* needed for getopt() */
-     extern int optind;   /* needed for getopt() */
-     int input_error;
-     int c;
-     int i;
-     static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
+  void *pfdctx;			/* fdmgr context */
+  extern char *optarg; /* needed for getopt() */
+  extern int optind;   /* needed for getopt() */
+  int input_error;
+  int c;
+  int i,j;
+  static struct timeval timeout = {FDMGR_SEC_TIMEOUT, FDMGR_USEC_TIMEOUT};
 
-     /*  initialize channel access */
-     SEVCHK(ca_task_initialize(),
-		"initializeCA: error in ca_task_initialize");
+  /*  initialize channel access */
+  SEVCHK(ca_task_initialize(),
+    "initializeCA: error in ca_task_initialize");
  
-     /* initialize fdmgr */
-     pfdctx = (void *) fdmgr_init();
+  /* initialize fdmgr */
+  pfdctx = (void *) fdmgr_init();
 
-     /* add CA's fd to fdmgr...  */
-     SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
-          "initializeCA: error adding CA's fd to X");
+  /* add CA's fd to fdmgr...  */
+  SEVCHK(ca_add_fd_registration(registerCA,pfdctx),
+    "initializeCA: error adding CA's fd to X");
 
-     /* get command line options if any  */
-     DEBUG = FALSE;
-     input_error = 0;
-     while (!input_error && (c = getopt(argc, argv, "vc")) != -1)
-     {
-         switch (c)
-         {
-             case 'v': DEBUG = TRUE; break;
-             case '?': input_error = 1; break;
-             default: input_error = 1; break;
-         }
-     }
-     if (input_error || optind >= argc) {
-          fprintf(stderr, "\n \tusage: %s PVname PVname ... \n\n",argv[0]);
-          exit(1);
-     }
- 
-     /* add ca monitor for each  PVname on the command line */
-     for (i = 0;  optind < argc; optind++, i ++){
-       if (DEBUG) printf("PVname%d: %s\n",i,argv[optind]);
-       addMonitor(argv[optind]);
-     }
+  DEBUG = FALSE;
 
-     ca_pend_event(CA_PEND_EVENT_TIME);
+  /* get command line options and pvnames */
+  for(i=1;i<argc && !input_error;i++)
+  {
+    if(strncmp("-v",argv[i],2)==0){
+      DEBUG = TRUE;
+    } else if(strncmp("-?",argv[i],2)==0){
+      input_error =1;
+    } else if(strncmp("-",argv[i],1)==0){
+      input_error =1;
+    } else{
+      if (DEBUG) printf("PVname%d: %s\n",i,argv[i]);
+      addMonitor(argv[i]);
+    }
+  }
+  if(input_error) {
+    fprintf(stderr, "\n \tusage: %s PVname PVname ... \n\n",argv[0]);
+    exit(1);
+  }
 
-     /* start  events loop */
-     while(TRUE) {
-          fdmgr_pend_event(pfdctx,&timeout);
-     }
+  ca_pend_event(CA_PEND_EVENT_TIME);
+
+  /* start  events loop */
+  while(TRUE) {
+    fdmgr_pend_event(pfdctx,&timeout);
+  }
 }
 

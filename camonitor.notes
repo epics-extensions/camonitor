@@ -1,0 +1,4 @@
+Mon Sep 21 15:06:43 CDT 1998
+	Added access rights change handler
+	Added connection handler
+	Replaced getopt code (for portability)
