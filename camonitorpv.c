@@ -2,6 +2,9 @@
 /*
  * $Id$
  * $Log$
+ * Revision 1.3  2000/05/01 16:09:07  jba
+ * Exception callback exCB replaced.
+ *
  * Revision 1.2  1999/03/01 20:04:26  jba
  * Only do ca_get and add_event on first connection.
  *
@@ -228,20 +231,48 @@ static void getCB(EVENT_ARGS args)
 		fprintf(stderr,"PV <%s> get failed\n",pv_name);
 }
 
-static void exCB(EXCEPT_ARGS args)
+static void exCB(struct exception_handler_args args)
 {
-	fprintf(stderr,"exCB: -------------------------------\n");
-	fprintf(stderr,"exCB: name=%s\n",ca_name(args.chid));
-	fprintf(stderr,"exCB: type=%d\n",ca_field_type(args.chid));
-	fprintf(stderr,"exCB: number of elements=%d\n",ca_element_count(args.chid));
-	fprintf(stderr,"exCB: host name=%s\n",ca_host_name(args.chid));
-	fprintf(stderr,"exCB: read access=%d\n",ca_read_access(args.chid));
-	fprintf(stderr,"exCB: write access=%d\n",ca_write_access(args.chid));
-	fprintf(stderr,"exCB: state=%d\n",ca_state(args.chid));
-	fprintf(stderr,"exCB: -------------------------------\n");
-	fprintf(stderr,"exCB: type=%d\n",args.type);
-	fprintf(stderr,"exCB: count=%d\n",args.count);
-	fprintf(stderr,"exCB: status=%d\n",args.stat);
+#define MAX_EXCEPTIONS 25    
+    static int nexceptions=0;
+    static int ended=0;
+
+    if(ended) return;
+    if(nexceptions++ > MAX_EXCEPTIONS) {
+        ended=1;
+        fprintf(stderr,"exCB Exception: Channel Access Exception:\n"
+          "Too many exceptions [%d]\n"
+          "No more will be handled\n"
+          "Please fix the problem and restart camonitorpv",
+          MAX_EXCEPTIONS);
+        ca_add_exception_event(NULL, NULL);
+        return;
+    }
+    
+    fprintf(stderr,"exCB Exception: Channel Access Exception:\n"
+      "  Channel Name: %s\n"
+      "  Native Type: %s\n"
+      "  Native Count: %hu\n"
+      "  Access: %s%s\n"
+      "  IOC: %s\n"
+      "  Message: %s\n"
+      "  Context: %s\n"
+      "  Requested Type: %s\n"
+      "  Requested Count: %ld\n"
+      "  Source File: %s\n"
+      "  Line number: %u",
+      args.chid?ca_name(args.chid):"Unavailable",
+      args.chid?dbf_type_to_text(ca_field_type(args.chid)):"Unavailable",
+      args.chid?ca_element_count(args.chid):0,
+      args.chid?(ca_read_access(args.chid)?"R":""):"Unavailable",
+      args.chid?(ca_write_access(args.chid)?"W":""):"",
+      args.chid?ca_host_name(args.chid):"Unavailable",
+      ca_message(args.stat)?ca_message(args.stat):"Unavailable",
+      args.ctx?args.ctx:"Unavailable",
+      dbf_type_to_text(args.type),
+      args.count,
+      args.pFile?args.pFile:"Unavailable",
+      args.pFile?args.lineNo:0);
 }
 
 static void evCB(evargs args)
