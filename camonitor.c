@@ -385,7 +385,7 @@ void processSTDIN(void *notused)
 {
  char input_line[80];
 
- if (gets(input_line)==NULL) return;
+ if (fgets(input_line,80-1,stdin)==NULL) return;
  if (strstr(input_line,"START") != NULL) {  /* if contains start cmd */
    if (DEBUG) printf("recvd START cmd\n");
    if (strchr(input_line, ' ') !=NULL) {    /* if space found */
