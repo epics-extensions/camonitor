@@ -41,14 +41,14 @@ static char *sccsId = "@(#) $Id$";
 #include <stdlib.h>
 #include <string.h>
 
-#include <fdmgr.h>
-#include <cvtFast.h>
-#include <cadef.h>
-#include <tsDefs.h>
-#include <alarm.h>			/* alarm status, severity     */
-#include <alarmString.h>
+#include "fdmgr.h"
+#include "cvtFast.h"
+#include "cadef.h"
+#include "tsDefs.h"
+#include "alarm.h"			/* alarm status, severity     */
+#include "alarmString.h"
 
-#include <camonitorVersion.h>
+#include "camonitorVersion.h"
 
 #define FDMGR_SEC_TIMEOUT        10              /* seconds       */
 #define FDMGR_USEC_TIMEOUT       0               /* micro-seconds */
