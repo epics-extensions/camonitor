@@ -23,6 +23,7 @@ include $(TOP)/config/CONFIG_EXTENSIONS
 #endif
 
 USR_LIBS = ca Com
+SYS_PROD_LIBS_WIN32 += ws2_32
 
 PROD_DEFAULT = camonitor camonitorpv
 PROD_WIN32 = camonitor
