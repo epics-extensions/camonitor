@@ -1,5 +1,5 @@
 
-static char *sccsId = "@(#)camonitor.c	1.22\t11/8/93";
+static char *sccsId = "@(#) $Id$";
 
 /* camonitor.c 
  *
