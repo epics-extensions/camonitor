@@ -20,3 +20,6 @@ Thu Sep  2 14:21:12 CDT 1999
 
 Fri Dec 17 09:09:31 CST 1999
 	Fixed bugs in obtaining precision.
+
+Mon May  1 11:35:52 CDT 2000
+	camonitorpv.c change: Exception callback exCB replaced.
