@@ -17,3 +17,6 @@ Mon Mar  1 14:05:13 CST 1999
 
 Thu Sep  2 14:21:12 CDT 1999
 	Changes to speed up connections
+
+Fri Dec 17 09:09:31 CST 1999
+	Fixed bugs in obtaining precision.
