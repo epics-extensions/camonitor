@@ -5,14 +5,14 @@ TOP = ../../..
 include $(TOP)/config/CONFIG_EXTENSIONS
 
 # Debugging options
-ifeq ($(T_A),solaris)
-CC  = purify -first-only -chain-length=30 $($(ANSI)_$(CMPLR))
-CXX = purify -first-only -chain-length=30 $($(CPLUSPLUS)_$(CXXCMPLR))
-HOST_OPT=NO
-#CC  = quantify  $($(ANSI)_$(CMPLR))
-#CXX = quantify  $($(CPLUSPLUS)_$(CXXCMPLR))
+#ifeq ($(T_A),solaris)
+#CC  = purify -first-only -chain-length=30 $($(ANSI)_$(CMPLR))
+#CXX = purify -first-only -chain-length=30 $($(CPLUSPLUS)_$(CXXCMPLR))
 #HOST_OPT=NO
-endif
+##CC  = quantify  $($(ANSI)_$(CMPLR))
+##CXX = quantify  $($(CPLUSPLUS)_$(CXXCMPLR))
+##HOST_OPT=NO
+#endif
 
 USR_LIBS = ca Com
 
