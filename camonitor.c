@@ -42,6 +42,7 @@ static char *sccsId = "@(#)camonitor.c	1.22\t11/8/93";
 #include <string.h>
 
 #include <fdmgr.h>
+#include <cvtFast.h>
 #include <cadef.h>
 #include <tsDefs.h>
 #include <alarm.h>			/* alarm status, severity     */
@@ -58,7 +59,6 @@ static char *sccsId = "@(#)camonitor.c	1.22\t11/8/93";
 /* globals */
 int DEBUG;
 
-
 /* forward declarations */
 static void processAccessRightsEvent(struct access_rights_handler_args args);
 void processChangeConnectionEvent( struct connection_handler_args args);
@@ -71,32 +71,46 @@ void addMonitor(char *channelName)
   chid chid;
   evid evid;
   int nelm;
+  struct dbr_gr_float value;
+  short *pprecision = 0;
+  int request_type;
 
   if (DEBUG) printf("addMonitor for [%s]\n",channelName);
 
   status = ca_search(channelName,&chid);
-  if (status != ECA_NORMAL)
-    printf("ca_search failed on channel name: [%s]\n",channelName);
+  SEVCHK(status,"ca_search failed\n");
+  if (status != ECA_NORMAL) return;
 
-  status = ca_replace_access_rights_event(chid, processAccessRightsEvent);
-  if (status != ECA_NORMAL)
-    printf("ca_replace_access_rights_event failed on channel name: [%s]\n",channelName);
+  ca_pend_io(2.0);
 
-  ca_pend_io(1.0);
-  nelm = ca_element_count(chid);
-  if (DEBUG) printf("Number of elements  for [%s] is %d\n",channelName,nelm);
+  if (ca_field_type(chid) == TYPENOTCONN) {
+    printf(" %s  not found\n",channelName);
+  } else {
+    status = ca_replace_access_rights_event(chid, processAccessRightsEvent);
+    SEVCHK(status,"ca_replace_access_rights_event failed\n");
 
-  status = ca_add_masked_array_event(DBR_TIME_STRING, nelm, chid, processNewEvent,
-     NULL, (float)0,(float)0,(float)0, &evid, DBE_VALUE|DBE_ALARM);
-  if (status != ECA_NORMAL)
-    printf("ca_add_masked_array_event failed on channel name: [%s]\n", channelName);
+    nelm = ca_element_count(chid);
+    if (DEBUG) printf("Number of elements  for [%s] is %d\n",channelName,nelm);
 
-  if (ca_field_type(chid) == TYPENOTCONN)
-    printf(" %s  not connected\n",channelName);
+    if (ca_field_type(chid) == DBF_DOUBLE ||
+        ca_field_type(chid) == DBF_FLOAT ) {
+      status = ca_get(DBR_GR_FLOAT,chid,&value);
+      SEVCHK(status,"ca_get for precision failed\n");
+      ca_pend_io(2.0);
+      pprecision = (short *)calloc(1,sizeof(short));
+      *pprecision = value.precision;
+    }
 
-  /* add change connection event */
-  ca_change_connection_event(chid, processChangeConnectionEvent);
+    if (ca_field_type(chid) == DBF_ENUM ) request_type = DBR_TIME_STRING;
+    else request_type = dbf_type_to_DBR_TIME(ca_field_type(chid));
 
+    status = ca_add_masked_array_event(request_type, nelm, chid, processNewEvent,
+       pprecision, (float)0,(float)0,(float)0, &evid, DBE_VALUE|DBE_ALARM);
+    SEVCHK(status,"ca_add_masked_array_event failed\n");
+
+    /* add change connection event */
+    ca_change_connection_event(chid, processChangeConnectionEvent);
+  }
 }
 
 static void processAccessRightsEvent(struct access_rights_handler_args args)
@@ -124,25 +138,107 @@ void processNewEvent(struct event_handler_args args)
   struct dbr_time_string *cdData;
   char    timeText[28];
   int i;
-  int bytes;
-  int size;
-  char *val;
+  int count;
+  int type;
+  void *pbuffer;
 
   if (DEBUG) printf("processNewEvent for [%s]\n",ca_name(args.chid));
 
   cdData = (struct dbr_time_string *) args.dbr;
-
   (void)tsStampToText(&cdData->stamp, TS_TEXT_MMDDYY, timeText);
+  printf(" %-30s %s ", ca_name(args.chid), timeText);
 
-  printf(" %-30s %s", ca_name(args.chid), timeText);
+  count = args.count;
+  pbuffer = (void *)args.dbr;
+  type = args.type;
 
-  bytes = dbr_size_n(args.type,args.count);
-  size = dbr_value_size[args.type];
-  val = dbr_value_ptr(args.dbr,args.type);
-  for (i=0;i<args.count;i++) {
-    printf(" %6s",val);
-    if ((i+1) % 10 == 0 && (i+1)<args.count) printf("\n");
-    val+=size;
+  switch(type){
+  case (DBR_TIME_STRING):
+  {
+    struct dbr_time_string *pvalue 
+      = (struct dbr_time_string *) pbuffer;
+	
+    printf("%s ",pvalue->value);
+    break;
+  }
+  case (DBR_TIME_ENUM):
+  {
+    struct dbr_time_enum *pvalue
+      = (struct dbr_time_enum *)pbuffer;
+    dbr_enum_t *pshort = &pvalue->value;
+
+    for (i = 0; i < count; i++,pshort++){
+      if(count!=1 && (i%10 == 0)) printf("\n");
+      printf("%d ",*pshort);
+    }
+    break;
+  }
+  case (DBR_TIME_SHORT):
+  {
+    struct dbr_time_short *pvalue
+      = (struct dbr_time_short *)pbuffer;
+    dbr_short_t *pshort = &pvalue->value;
+
+    for (i = 0; i < count; i++,pshort++){
+      if(count!=1 && (i%10 == 0)) printf("\n");
+      printf("%d ",*pshort);
+    }
+    break;
+  }
+  case (DBR_TIME_FLOAT):
+  {
+    struct dbr_time_float *pvalue
+      = (struct dbr_time_float *)pbuffer;
+    dbr_float_t *pfloat = &pvalue->value;
+    char string[MAX_STRING_SIZE];
+    short *pprecision =(short*)args.usr;
+
+    for (i = 0; i < count; i++,pfloat++){
+      if(count!=1 && (i%10 == 0)) printf("\n");
+      cvtFloatToString(*pfloat,string,*pprecision);
+      printf("%s ",string);
+    }
+    break;
+  }
+  case (DBR_TIME_CHAR):
+  {
+    struct dbr_time_char *pvalue
+      = (struct dbr_time_char *)pbuffer;
+    dbr_char_t *pchar = &pvalue->value;
+
+    for (i = 0; i < count; i++,pchar++){
+      if(count!=1 && (i%10 == 0)) printf("\n");
+      printf("%d ",(short)(*pchar));
+    }
+    break;
+  }
+  case (DBR_TIME_LONG):
+  {
+    struct dbr_time_long *pvalue
+      = (struct dbr_time_long *)pbuffer;
+    dbr_long_t *plong = &pvalue->value;
+
+    for (i = 0; i < count; i++,plong++){
+      if(count!=1 && (i%10 == 0)) printf("\n");
+      printf("%d ",*plong);
+    }
+    break;
+  }
+  case (DBR_TIME_DOUBLE):
+  {
+    struct dbr_time_double *pvalue
+      = (struct dbr_time_double *)pbuffer;
+    dbr_double_t *pdouble = &pvalue->value;
+    char string[MAX_STRING_SIZE];
+    short *pprecision =(short*)args.usr;
+
+    for (i = 0; i < count; i++,pdouble++){
+      if(count!=1 && (i%10 == 0)) printf("\n");
+      cvtDoubleToString(*pdouble,string,*pprecision);
+      printf("%s ",string);
+    }
+    break;
+  }
   }
 
   if (cdData->severity)
@@ -206,6 +302,8 @@ void main(int argc,char *argv[])
       addMonitor(argv[i]);
     }
   }
+  if (argc == 1) input_error =1;
+
   if(input_error) {
     fprintf(stderr, "\n \tusage: %s PVname PVname ... \n\n",argv[0]);
     exit(1);

@@ -4,6 +4,10 @@
 TOP = ../../..
 include $(TOP)/config/CONFIG_EXTENSIONS
 
+# Debugging options
+#CC = purify -first-only -chain-length=25  $($(ANSI)_$(CMPLR))
+#HOST_OPT=NO
+
 USR_LIBS = ca Com
 
 PROD_DEFAULT = camonitor camonitorpv
