@@ -10,11 +10,6 @@ include $(TOP)/config/CONFIG_EXTENSIONS
 
 USR_LIBS = ca Com
 
-ifdef BASE_3_14
-USR_LIBS += ts
-ts_DIR = $(INSTALL_LIB)
-endif
-
 PROD_DEFAULT = camonitor camonitorpv
 PROD_WIN32 = camonitor
 
