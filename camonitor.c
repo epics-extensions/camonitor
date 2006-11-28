@@ -187,7 +187,7 @@ void startMonitor (chid chan, dbr_short_t *pprecision)
 
 void getPrecisionCallBack (struct event_handler_args args)
 {
-    const struct dbr_gr_float *pvalue = args.dbr;
+    const struct dbr_gr_float *pvalue = (const struct dbr_gr_float *)args.dbr;
     dbr_short_t *pprecision;
 
     if (args.status!=ECA_NORMAL) {
