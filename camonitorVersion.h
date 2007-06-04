@@ -12,7 +12,7 @@
 
 static char *camonitorVersionsccsId = "@(#) $Id$";
 
-#define camonitorVersion "@(#) camonitor Version R20020910  $Date$"
+#define camonitorVersion "@(#) camonitor Version R20070604  $Date$"
 
 #endif /* INCcamonitorVersionh */
 
