@@ -10,7 +10,24 @@
 # $Id$
 #
 TOP = ../..
-include $(TOP)/config/CONFIG_EXTENSIONS
-include $(TOP)/config/RULES_ARCHS
+include $(TOP)/configure/CONFIG
 
+# Debugging options
+ifeq ($(T_A),solaris)
+#DEBUGCMD = purify -first-only -chain-length=30
+#DEBUGCMD = quantify
+#HOST_OPT=NO
+endif
+
+USR_LIBS = ca Com
+SYS_PROD_LIBS_WIN32 += ws2_32
+
+PROD_DEFAULT = camonitor camonitorpv
+PROD_WIN32 = camonitor
+PROD_Darwin = camonitor
+
+camonitor_SRCS = camonitor.c
+camonitorpv_SRCS = camonitorpv.c
+
+include $(TOP)/configure/RULES
 
