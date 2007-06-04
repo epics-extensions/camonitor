@@ -218,7 +218,7 @@ void processChangeConnectionEvent(struct connection_handler_args args)
     if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
     ca_set_puser(args.chid,(void *)TRUE);
     if (DEBUG) {
-        printf ("Number of elements  for [%s] is %d\n",
+        printf ("Number of elements  for [%s] is %ld\n",
             ca_name(args.chid), ca_element_count(args.chid));
     }
 
