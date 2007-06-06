@@ -22,9 +22,9 @@ endif
 USR_LIBS = ca Com
 SYS_PROD_LIBS_WIN32 += ws2_32
 
-PROD_DEFAULT = camonitor camonitorpv
-PROD_WIN32 = camonitor
-PROD_Darwin = camonitor
+PROD_HOST_DEFAULT = camonitor camonitorpv
+PROD_HOST_WIN32 = camonitor
+PROD_HOST_Darwin = camonitor
 
 camonitor_SRCS = camonitor.c
 camonitorpv_SRCS = camonitorpv.c
