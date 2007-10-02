@@ -13,7 +13,7 @@ TOP = ../..
 include $(TOP)/configure/CONFIG
 
 # Debugging options
-ifeq ($(T_A),solaris)
+ifeq ($(T_A),solaris-sparc)
 #DEBUGCMD = purify -first-only -chain-length=30
 #DEBUGCMD = quantify
 #HOST_OPT=NO
