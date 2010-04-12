@@ -10,7 +10,9 @@
 #ifndef INCcamonitorVersionh
 #define INCcamonitorVersionh
 
-static char *camonitorVersionsccsId = "@(#) $Id$";
+/*
+ * $Id$
+ */     
 
 #define camonitorVersion "@(#) camonitor Version R20070604  $Date$"
 

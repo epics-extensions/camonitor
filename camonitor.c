@@ -7,9 +7,8 @@
 * in the file LICENSE that is included with this distribution. 
 \*************************************************************************/
 
-static char *sccsId = "@(#) $Id$";
-
-/* camonitor.c 
+/*
+ * $Id$
  *
  *      Author: Janet Anderson
  *      Date:   11-08-93
