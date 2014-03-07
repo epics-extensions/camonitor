@@ -253,7 +253,7 @@ void processNewEvent(struct event_handler_args args)
   }
 
   cdData = (struct dbr_time_string *) args.dbr;
-  (void)tsStampToText(&cdData->stamp, TS_TEXT_MMDDYY, timeText);
+  epicsTimeToStrftime(timeText,28,"%m/%d/%y %H:%M:%S.%09f",&cdData->stamp);
   printf(" %-30s %s ", ca_name(args.chid), timeText);
 
   count = args.count;
