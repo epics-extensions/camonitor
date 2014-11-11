@@ -25,7 +25,6 @@
 #include "fdmgr.h"
 #include "cvtFast.h"
 #include "cadef.h"
-#include "tsDefs.h"
 #include "alarm.h"			/* alarm status, severity     */
 #include "alarmString.h"
 
