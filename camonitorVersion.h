@@ -14,7 +14,7 @@
  * $Id$
  */     
 
-#define camonitorVersion "@(#) camonitor Version R20070604  $Date$"
+#define camonitorVersion "@(#) camonitor Version R20150512  $Date$"
 
 #endif /* INCcamonitorVersionh */
 
