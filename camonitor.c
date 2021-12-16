@@ -213,7 +213,7 @@ void processChangeConnectionEvent(struct connection_handler_args args)
      printf ("[%s] not connected\n",ca_name(args.chid));
   } 
   else {
-    if (ca_puser(args.chid) == (READONLY void *)TRUE) return;
+    if (ca_puser(args.chid) == (void *)TRUE) return;
     ca_set_puser(args.chid,(void *)TRUE);
     if (DEBUG) {
         printf ("Number of elements  for [%s] is %ld\n",
