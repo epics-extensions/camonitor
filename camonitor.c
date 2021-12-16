@@ -22,6 +22,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "shareLib.h"
 #include "fdmgr.h"
 #include "cvtFast.h"
 #include "cadef.h"
